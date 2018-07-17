@@ -1,0 +1,88 @@
+#!/usr/bin/gawk -f
+
+# Copyright © 2018 Red Hat, Inc. and others
+#
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License v1.0 which accompanies this distribution,
+# and is available at http://www.eclipse.org/legal/epl-v10.html
+
+# Track cluster state using ODL Karaf logs
+
+# Fields: timestamp, loglevel, thread, class, bundle, message
+BEGIN {
+    FS = "|"
+}
+
+# TODO
+# - Once the parsing is correct, match in the block expression
+# - Keep track of state?
+
+/is greater than follower's term/ {
+    # New term
+    if (match($6, /([^ ]+) \(([^\)]+)\): Term ([[:digit:]]+) in "RequestVote \[term=[[:digit:]]+, candidateId=([^,]+), lastLogIndex=[-[:digit:]]+, lastLogTerm=[-[:digit:]]+\]" message is greater than follower's term ([[:digit:]]+) - updating term/, matches)) {
+	printf "%s: %s (%s) received vote request from candidate %s, updating term from %d to %d\n", $1, matches[1], matches[2], matches[4], matches[5], matches[3]
+    } else {
+	printf "Unable to parse %s\n", $6
+    }
+}
+
+/Leader is moving node/ {
+    # Leader is moving node [akka.tcp://opendaylight-cluster-data@172.17.1.24:2550] to [Up]
+    # Akka state tracking
+    if (match($6, /Cluster Node \[([^\]]+)\] - Leader is moving node \[([^\]]+)\] to \[([^\]]+)\]/, matches)) {
+	printf "%s: Akka node %s received notification that the cluster leader considers node %s is %s\n", $1, matches[1], matches[2], matches[3]
+    } else {
+	printf "Unable to parse %s\n", $6
+    }
+}
+
+/Peer address for peer/ {
+    # Mapping from shard names to Akka cluster addresses
+    if (match($6, /Peer address for peer ([^ ]+) set to ([^ ]+)/, matches)) {
+	printf "%s: Akka address for %s set to %s\n", $1, matches[1], matches[2]
+    } else {
+	printf "Unable to parse %s\n", $6
+    }
+}
+
+/Received LeaderStateChanged message/ {
+    print $1, $6
+}
+
+/Received MemberUp/ {
+    if (match($6, "([^: ]+): Received MemberUp: memberName: MemberName\{name=([^\}]+)\}, address: ([^ ]+)", matches)) {
+	printf "%s: %s: member %s (%s) is up\n", $1, matches[1], matches[2], matches[3]
+    } else {
+	printf "Unable to parse %s\n", $6
+    }
+}
+
+/[Rr]eceived role change/ {
+    print $1, $6
+}
+
+/RoleChangeNotifier for/ {
+    print $1, $6
+}
+
+/Starting new election term/ {
+    # New term (initiated by the node logging this)
+    if (match($6, /([^ ]+) \(([^\)]+)\): Starting new election term ([[:digit:]]+)/, matches)) {
+	printf "%s: %s starting new election term %d as %s\n", $1, matches[1], matches[3], matches[2]
+    } else {
+	printf "Unable to parse %s\n", $6
+    }
+}
+
+/Switching from behavior/ {
+    # Behaviour change
+    print $1, $6
+}
+
+/updatePeerAddress/ {
+    if (match($6, /updatePeerAddress for peer ([^ ]+) with address ([^ ]+)/, matches)) {
+	printf "%s: Akka address for %s updated to %s\n", $1, matches[1], matches[2]
+    } else {
+	printf "Unable to parse %s\n", $6
+    }
+}
