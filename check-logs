@@ -1,5 +1,7 @@
 #!/bin/sh
 
+url=https://logs.opendaylight.org/releng/vex-yul-odl-jenkins-1/
+
 case $# in
     [01])
 	echo "Usage: $0 job [number] pattern"
@@ -19,14 +21,12 @@ case $# in
 esac
 
 if [ -z "$number" ]; then
-   exit 1
+    number=$(wget -O- "${url}/${job}/" | grep -o '<a href="[^"]\+">' | tail -n 1 | cut -d\" -f2)
 fi
 
 dir=$(mktemp -d)
 cd $dir
-wget -r -np https://logs.opendaylight.org/releng/vex-yul-odl-jenkins-1/${job}/${number}/
-echo "Downloaded to $dir; $pattern occurs in the following files:"
+wget -r -np ${url}/${job}/${number}/
+echo "Downloaded to $dir; \"$pattern\" occurs in the following files:"
 find logs.opendaylight.org -type f | xargs zgrep -c "${pattern}" | grep -v :0$
 zgrep -c -r "${pattern}" logs.opendaylight.org
-
-#netvirt-csit-3node-openstack-queens-upstream-stateful-oxygen/327/
