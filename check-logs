@@ -1,0 +1,32 @@
+#!/bin/sh
+
+case $# in
+    [01])
+	echo "Usage: $0 job [number] pattern"
+	echo "reports how many times the pattern occurs in the logs for the given job."
+	echo "If the job number is ommitted, uses the last available run."
+	exit 1
+	;;
+    2)
+	job=$1
+	pattern="$2"
+	;;
+    *)
+	job=$1
+	number=$2
+	pattern="$3"
+	;;
+esac
+
+if [ -z "$number" ]; then
+   exit 1
+fi
+
+dir=$(mktemp -d)
+cd $dir
+wget -r -np https://logs.opendaylight.org/releng/vex-yul-odl-jenkins-1/${job}/${number}/
+echo "Downloaded to $dir; $pattern occurs in the following files:"
+find logs.opendaylight.org -type f | xargs zgrep -c "${pattern}" | grep -v :0$
+zgrep -c -r "${pattern}" logs.opendaylight.org
+
+#netvirt-csit-3node-openstack-queens-upstream-stateful-oxygen/327/
